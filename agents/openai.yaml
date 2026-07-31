@@ -1,0 +1,4 @@
+interface:
+  display_name: "Paper Sharing PPT"
+  short_description: "Create Chinese paper-sharing PPTX decks from PDFs."
+  default_prompt: "Use $paper-sharing-ppt to turn this selected paper PDF into a Chinese lab-meeting paper-sharing PPTX."
