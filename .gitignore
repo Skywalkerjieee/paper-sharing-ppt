@@ -1,0 +1,12 @@
+# generated decks and build intermediates
+build/
+figures/
+out/
+*.before-fonts.pptx
+*.tmp.pptx
+*.crop-cache/
+.crop-cache/
+
+# python
+__pycache__/
+*.pyc

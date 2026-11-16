@@ -1,0 +1,101 @@
+{
+  "$comment": "Authoritative layout tokens for paper-sharing-ppt decks. SKILL.md states the rules; this file is the machine-readable copy used when writing the build script. scripts/check_deck.py enforces the same numbers by default.",
+  "version": 1,
+  "canvas": {
+    "aspect": "16:9",
+    "cm": [33.867, 19.05],
+    "emu": [12192000, 6858000],
+    "px_at_96dpi": [1280, 720]
+  },
+  "margins": {
+    "body_cm": 1.2,
+    "top_band_cm": 0.8,
+    "chrome_cm": 0.4,
+    "$comment": "body_cm applies to left/right/bottom and to the top unless the text hangs in the label band clear of the label; chrome_cm covers the section label and page number."
+  },
+  "section_label": {
+    "size_pt": 24,
+    "min_pt": 18,
+    "max_pt": 30,
+    "inset_cm": 0.5,
+    "top_cm": 0.4,
+    "width_cm": 8.0,
+    "corner_rule": "one corner per section, identical offset and size across the slides of that section; left corner for left-aligned corners, right-aligned text in the right corner",
+    "example_corners": {
+      "Title": "left",
+      "Abstract": "left",
+      "Introduction": "right",
+      "Related Works": "right",
+      "Method": "left",
+      "Experiments": "right",
+      "Conclusion": "left"
+    }
+  },
+  "fonts": {
+    "latin": "Times New Roman",
+    "east_asian": "宋体",
+    "complex_script": "Times New Roman",
+    "math_symbol_fallback": "Cambria Math",
+    "macos_east_asian_fallback": "Songti SC",
+    "$comment": "Every run carries <a:latin>, <a:ea> and <a:cs>; PowerPoint resolves each character against the matching slot, so mixed Chinese/English runs need no splitting."
+  },
+  "text": {
+    "body_pt": 18,
+    "min_pt": 18,
+    "subheading_pt": [22, 24],
+    "line_spacing": 1.0,
+    "first_line_indent": "　　",
+    "math_variables_italic": true
+  },
+  "chrome": {
+    "page_number": {
+      "format": "{n} / {total}",
+      "size_pt": 14,
+      "min_pt": 12,
+      "color": "7F7F7F",
+      "inset_cm": 0.6,
+      "skip_first_slide": true,
+      "text_right_aligned": true
+    }
+  },
+  "palette": {
+    "background": "FFFFFF",
+    "text": "000000",
+    "muted": "7F7F7F",
+    "accent": "C00000",
+    "$comment": "Black text on white. Muted grey is reserved for chrome. The accent may be used only to mark best-result cells in a recreated table, together with bold; no other colour is allowed."
+  },
+  "slides": {
+    "max": 30,
+    "notes_min_chars": 60,
+    "sections": {
+      "Title": {"min": 1, "max": 1},
+      "Abstract": {"min": 1, "max": 2},
+      "Introduction": {"min": 2, "max": 3},
+      "Related Works": {"min": 2, "max": 3},
+      "Method": {"min": 4, "max": 16},
+      "Experiments": {"min": 3, "max": 12},
+      "Conclusion": {"min": 1, "max": 1}
+    },
+    "char_budget_per_slide": {"target": 450, "warn": 600, "max": 800},
+    "$comment": "At 18 pt with a 1.2 cm inset a full-width slide holds about 45 Chinese characters per line and 15 lines; plan 350-450 characters of readable prose per slide."
+  },
+  "images": {
+    "target_dpi": 300,
+    "min_dpi": 220,
+    "centre_tolerance_cm": 0.3,
+    "ink_padding_pt": 6,
+    "max_stretch_ratio": 0.005,
+    "table_min_effective_pt": 14,
+    "$comment": "Place with width only and centre with left = (canvas_width - width) / 2. Crop with scripts/crop_pdf.py, which pads all four sides equally."
+  },
+  "gates": {
+    "order": [
+      "build/deck.pptx",
+      "scripts/fix_fonts.py",
+      "scripts/add_page_numbers.py",
+      "scripts/check_deck.py"
+    ],
+    "render_check": "render every slide and inspect before delivery; re-check at most twice per slide, then change the layout"
+  }
+}
