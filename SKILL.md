@@ -1,6 +1,7 @@
 ---
 name: paper-sharing-ppt
 description: Create Chinese lab-meeting paper-sharing PPTX decks from one selected academic paper PDF. Use when the user provides or points to a paper PDF and asks for a paper sharing presentation, literature sharing slides, seminar/group-meeting PPT, or a Chinese research paper presentation deck.
+whenToUse: 当用户给出或指向一篇论文 PDF，并要求做组会论文分享、文献汇报、论文精读分享、paper sharing / literature sharing / seminar slides，或说“把这篇论文做成 PPT”“做一份组会汇报”时使用。Requires one selected paper PDF; produces a Chinese .pptx with speaker notes.
 ---
 
 # Paper Sharing PPT
@@ -10,6 +11,25 @@ description: Create Chinese lab-meeting paper-sharing PPTX decks from one select
 Create a source-faithful Chinese paper-sharing `.pptx` from one selected academic paper PDF for graduate group meetings. The final deck must explain the paper in a plain academic style, include presenter notes, and stay within 30 slides.
 
 Use the PDF as the source of truth. Do not invent claims, results, datasets, methods, contributions, or limitations. If a required section is absent, state this in working notes and adapt from the closest main-body section without fabricating content.
+
+## Environment
+
+This skill runs in DeepSeek Harness (DSH). Three environment facts decide how every command below is written.
+
+**Scripts live in the skill, not in the working directory.** The `skill` tool reports the skill's base directory. Call every script through it; never assume the current directory is the skill directory.
+
+```bash
+SKILL="/absolute/base/directory/reported/by/the/skill/tool"
+python "$SKILL/scripts/check_deck.py" build/deck.pptx
+```
+
+**Python comes from `load_workspace_dependencies`.** Call that tool once and use the returned interpreter, which ships `python-pptx` and `Pillow`. Do not fall back to a system `python`, and do not install packages.
+
+**Rendering comes from the `office` skill.** Call `skill('office')` first; `office_render` and `office_convert` appear in the next step. `office_render` renders the slides to images you can actually see, which is how the visual pass below is done. Do not look for LibreOffice or `soffice`.
+
+If a dependency is missing, run `python "$SKILL/scripts/preflight.py"` and report exactly what it lists. Do not substitute a hand-made crop or a guessed font for a missing dependency.
+
+Outputs must stay inside the workspace (`build/`, `figures/`). On Windows, a write outside the workspace or into a directory without the sandbox's integrity label fails with `EACCES`; do not work around it, load the `diagnose-windows-sandbox-acl` skill instead.
 
 ## Inputs
 
@@ -38,18 +58,19 @@ These are machine-checked by `scripts/check_deck.py`; do not approximate them. `
 
 ## Toolchain
 
-Build the deck as code, never by hand.
+Build the deck as code with `python-pptx`, never by hand.
 
-- If `@oai/artifact-tool` is available, build from a JavaScript ES module on a 1280 × 720 px canvas.
-- Otherwise build with `python-pptx` and set the slide size explicitly to `12192000 × 6858000` EMU.
-- Either way, the build must be a re-runnable script so a layout fix is a one-line change, not a redraw.
+- Load the `office-pptx` skill before writing the build script; it documents the supported `python-pptx` idioms and the render step.
+- Set the slide size explicitly to `12192000 × 6858000` EMU.
+- Keep the build a re-runnable script in the workspace so a layout fix is a one-line change, not a redraw.
+- `@oai/artifact-tool` does not exist in DSH; a JavaScript build path is not available here.
 
 Run the gates in this order after building:
 
 ```bash
-python scripts/fix_fonts.py build/deck.pptx          # per-run fonts + language, idempotent
-python scripts/add_page_numbers.py build/deck.pptx   # chrome page numbers
-python scripts/check_deck.py build/deck.pptx         # mechanical contract check
+python "$SKILL/scripts/fix_fonts.py" build/deck.pptx          # per-run fonts + language, idempotent
+python "$SKILL/scripts/add_page_numbers.py" build/deck.pptx   # chrome page numbers
+python "$SKILL/scripts/check_deck.py" build/deck.pptx         # mechanical contract check
 ```
 
 `fix_fonts.py` works on any `.pptx` regardless of the builder. `check_deck.py` exits non-zero on errors. Fix every error before the visual pass; treat warnings as review items.
@@ -59,8 +80,8 @@ python scripts/check_deck.py build/deck.pptx         # mechanical contract check
 Write `build/plan.json` first and validate it before generating a single slide:
 
 ```bash
-python scripts/validate_plan.py --init build/plan.json   # starter shape
-python scripts/validate_plan.py build/plan.json          # must exit 0
+python "$SKILL/scripts/validate_plan.py" --init build/plan.json   # starter shape
+python "$SKILL/scripts/validate_plan.py" build/plan.json          # must exit 0
 ```
 
 The plan lists one entry per slide with `n`, `section`, `layout`, `heading`, `chars`, `assets`, and `notes_chars`. It is cheap to fix here and expensive after building: the validator catches an over-limit slide count, a missing section, a slide planned beyond its character budget, a figure or formula slide with no asset, and a section out of order. A slide holds about 450 characters of readable 18 pt prose; 600 is dense and 800 cannot fit.
@@ -70,7 +91,7 @@ The plan lists one entry per slide with `n`, `section`, `layout`, `heading`, `ch
 Use `scripts/crop_pdf.py` (poppler backends: `pdfinfo`, `pdftotext`, `pdftoppm`). It replaces eyeballed crops with a measurement:
 
 ```bash
-python scripts/crop_pdf.py --pdf paper.pdf --page 3 \
+python "$SKILL/scripts/crop_pdf.py" --pdf paper.pdf --page 3 \
     --rect 60,335,300,400 --out figures/eq1.png --manifest figures/eq1.json
 ```
 
@@ -99,8 +120,7 @@ PowerPoint resolves each character of a run against three separate typefaces in 
 
 - Every run carries `<a:latin typeface="Times New Roman"/>`, `<a:ea typeface="宋体"/>`, `<a:cs typeface="Times New Roman"/>`, and `lang="zh-CN"` (plus `altLang="en-US"`) or `lang="en-US"`.
 - Do **not** split a mixed-sentence run into Chinese and English runs to get fonts right. One run with the triple renders both scripts correctly; splitting only adds break opportunities and font drift.
-- `scripts/fix_fonts.py` guarantees this after the fact for every run, table cell, placeholder, master, layout, and theme font. Run it even when the builder "should" have done it.
-- Math typography for recreated formulas: variables and Greek symbols italic (`x`, `λ`, `θ`), function names upright (`max`, `log`, `softmax`), numbers and units upright, vectors and matrices bold upright, operators upright.
+- `scripts/fix_fonts.py` guarantees this after the fact for every run, table cell, placeholder, master, layout, and theme font. Run it even when the builder "should" have done it.- Math typography for recreated formulas: variables and Greek symbols italic (`x`, `λ`, `θ`), function names upright (`max`, `log`, `softmax`), numbers and units upright, vectors and matrices bold upright, operators upright.
 - Use `Cambria Math` for symbols that Times New Roman lacks (`∑`, `∇`, `⊙`, `≜`, `‖`); keep `Times New Roman` for ordinary Latin letters and digits.
 - On macOS, 宋体 may be absent: substitute `Songti SC` in the same `ea` slot and note the substitution.
 
@@ -193,18 +213,20 @@ Notes are the presenter's script, not a dump for unverified content.
 
 ## Build, gate, and inspect
 
-1. Write `build/plan.json` and run `scripts/validate_plan.py` until it exits 0.
+1. Write `build/plan.json` and run `"$SKILL/scripts/validate_plan.py"` until it exits 0.
 2. Write the build script and generate `build/deck.pptx`.
 3. Run `fix_fonts.py`, `add_page_numbers.py`, then `check_deck.py`. Fix every error and re-run until clean.
-4. Render every slide to an image and inspect: `soffice --headless --convert-to pdf` followed by `pdftoppm -r 110 -png`, or any equivalent renderer available in the environment.
+4. Render every slide with `office_render` (load `skill('office')` first) and look at the images. Pass all slides at once; at 110–144 dpi a slide stays legible without flooding context. `office_convert` to `pdf` only when a PDF is also requested.
 5. Inspect in this order: screenshot completeness and centring, text overflow and collisions, label consistency, punctuation orphans, legibility of table values.
 6. Stop after at most two render-fix cycles for the same slide. If it still fails, change the layout (split the slide, shrink the object count, move prose to notes) instead of nudging coordinates.
+
+**When the model cannot see images** (`deepseek-v4-pro` and other text-only endpoints replace an image with `[Unsupported Image]`), the visual pass is not available: run the mechanical gates only, keep the renders on disk for the user, and state in the delivery that no visual inspection was performed. Do not describe images you could not see.
 
 Where rendering is unavailable, say so explicitly and deliver with the mechanical gates clean; do not claim a visual inspection that did not happen.
 
 ## Final checklist
 
-Run `check_deck.py` and confirm zero errors, then confirm by eye:
+Run `"$SKILL/scripts/check_deck.py"` and confirm zero errors, then confirm by eye:
 
 - `validate_plan.py` exits 0 for the plan, and the built deck matches it.
 - 16:9 at 33.867 × 19.05 cm, ≤ 30 slides.
@@ -233,4 +255,4 @@ Run `check_deck.py` and confirm zero errors, then confirm by eye:
 
 - Use it to see how prose-dense method pages, formula pages, table pages, and title pages look at these measurements.
 - Do not duplicate it, and replace all sample paper content. No visible content from it may survive unless it also appears in the input PDF.
-- Its screenshots come from a low-resolution source, so it deliberately fails the image-resolution warning; a real deck must re-crop with `scripts/crop_pdf.py` at the target dpi.
+- Its screenshots come from a low-resolution source, so it deliberately fails the image-resolution warning; a real deck must re-crop with `"$SKILL/scripts/crop_pdf.py"` at the target dpi.
